@@ -1,90 +1,35 @@
 package ru.netology;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.List;
+import java.util.concurrent.Executors;
 
-public class Server extends Thread {
+public class Server {
 
-    private Socket socket;
-    private BufferedReader in;
-    private BufferedOutputStream out;
-    private List<String> validPaths;
+    public Server() throws IOException {
+        final var serverSocket = new ServerSocket(9999);
+        final var threadPool = Executors.newFixedThreadPool(64);
+        final var validPaths = List.of("/index.html", "/spring.svg", "/spring.png");
 
-    public Server(List<String> validPaths) {
-        this.validPaths = validPaths;
-    }
-
-    @Override
-    public void run() {
-
-        ServerSocket serverSocket = null;
-        try {
-            serverSocket = new ServerSocket(9999);
-        } catch (IOException ioException) {
-            ioException.printStackTrace();
-        }
+        System.out.println("Сервер начал работать!");
 
         try {
             while (true) {
-                socket = serverSocket.accept();
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                out = new BufferedOutputStream(socket.getOutputStream());
-                processingRequest();
-            }
-        } catch (IOException ioException) {
-            ioException.printStackTrace();
-        }
-    }
-
-
-    public void processingRequest() {
-
-        while (true) {
-            try {
-                final var requestLine = in.readLine();
-                final var parts = requestLine.split(" ");
-
-                if (parts.length != 3) {
-                    continue;
+                Socket socket = serverSocket.accept();
+                try {
+                    final var serverThread = new ServerThread(socket, validPaths);
+                    threadPool.submit(serverThread);
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-
-                final var path = parts[1];
-                if (!validPaths.contains(path)) {
-                    out.write((
-                            "HTTP/1.1 404 Not Found\r\n" +
-                                    "Content-Length: 0\r\n" +
-                                    "Connection: close\r\n" +
-                                    "\r\n"
-                    ).getBytes());
-                    out.flush();
-                    continue;
-                }
-
-                final var filePath = Paths.get(".", "public", path);
-                final var mimeType = Files.probeContentType(filePath);
-                final var lenght = Files.size(filePath);
-                out.write((
-                        "HTTP/1.1 200 OK\r\n" +
-                                "Content-Type: " + mimeType + "\r\n" +
-                                "Content-Length: " + lenght + "\r\n" +
-                                "Connection: close\r\n" +
-                                "\r\n"
-                ).getBytes());
-                Files.copy(filePath, out);
-                out.flush();
-
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
+        threadPool.shutdown();
     }
 }
 
