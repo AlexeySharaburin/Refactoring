@@ -8,8 +8,15 @@ import java.util.concurrent.Executors;
 
 public class Server {
 
-    public Server() throws IOException {
-        final var serverSocket = new ServerSocket(9999);
+    private final ServerSocket serverSocket;
+
+    public Server(ServerSocket serverSocket) {
+        this.serverSocket = serverSocket;
+    }
+
+
+    public void connectServer() {
+
         final var threadPool = Executors.newFixedThreadPool(64);
         final var validPaths = List.of("/index.html", "/spring.svg", "/spring.png");
 
